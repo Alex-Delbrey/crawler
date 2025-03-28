@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 func main() {
@@ -28,17 +30,17 @@ func main() {
 
 func getHTML(rawURL string) (string, error) {
 	resp, err := http.Get(rawURL)
-	if resp.StatusCode >= 400 {
-		return "", err
+	if resp.StatusCode != http.StatusOK {
+		return "ERROR: Status request to URL failed with status code: " + strconv.Itoa(resp.StatusCode), err
 	}
 	defer resp.Body.Close()
 
 	if contentType := resp.Header.Get("Content-Type"); contentType != "text/html" {
-		return "", err
+		return "ERROR: response Header is not of Content-Type `text/html`", err
 	}
 	htmlResp, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "ERROR: Failed to read HTML body", err
 	}
 
 	return string(htmlResp), nil
