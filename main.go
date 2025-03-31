@@ -77,7 +77,7 @@ func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int) {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("CURRENTLY IN THIS URL'S HTML: ", rawCurrentURL)
+	fmt.Println("CURRENTLY IN THIS URL'S HTML: ", currentURLhtml)
 
 	allURLinCurrent, err := getURLsFromHTML(currentURLhtml, rawBaseURL)
 	if err != nil {
