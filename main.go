@@ -7,9 +7,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
-
-	"golang.org/x/net/html"
 )
 
 func main() {
@@ -47,8 +44,6 @@ func getHTML(rawURL string) (string, error) {
 	return string(htmlResp), nil
 }
 
-// TODO
-// - properly recurse through child URLs
 func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int) {
 	rawBase, err := url.Parse(rawBaseURL)
 	if err != nil {
@@ -82,18 +77,15 @@ func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int) {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("CURRENTLY IN THIS URL'S HTML: ", currentURLhtml)
+	fmt.Println("CURRENTLY IN THIS URL'S HTML: ", rawCurrentURL)
 
-	htmlReader := strings.NewReader(currentURLhtml)
-	treeNode, err := html.Parse(htmlReader)
+	allURLinCurrent, err := getURLsFromHTML(currentURLhtml, rawBaseURL)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
-	if treeNode.FirstChild != nil && treeNode.LastChild.Data == "a" {
-		crawlPage(rawBaseURL, treeNode.FirstChild.Attr[0].Val, pages)
-	} else if treeNode.FirstChild != nil && treeNode.LastChild.Data == "a" {
-		crawlPage(rawBaseURL, treeNode.LastChild.Attr[0].Val, pages)
+	for _, valUrl := range allURLinCurrent {
+		fmt.Println("url to traverse: ", valUrl)
+		crawlPage(rawBaseURL, valUrl, pages)
 	}
 }

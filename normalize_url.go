@@ -21,6 +21,8 @@ func normalizeURL(inputURL string) (string, error) {
 	return resultURL, nil
 }
 
+// I'm pretty sure this can be done in a better way BUT Descendants() is
+// recursive already, so techniacally not n^2
 func getURLsFromHTML(htmlBody, rawBaseURL string) ([]string, error) {
 	var str []string
 
