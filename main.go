@@ -7,7 +7,16 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"sync"
 )
+
+type config struct {
+	pages              map[string]int
+	baseURL            *url.URL
+	mu                 *sync.Mutex
+	concurrencyControl chan struct{}
+	wg                 *sync.WaitGroup
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -21,9 +30,12 @@ func main() {
 	}
 
 	BASE_URL := os.Args[1]
-	pages := make(map[string]int)
-	crawlPage(BASE_URL, BASE_URL, pages)
-	fmt.Println(pages)
+	cfg := config{
+		pages:   make(map[string]int),
+		baseURL: &url.URL{Host: BASE_URL},
+	}
+	cfg.crawlPage(cfg.baseURL.Host)
+	fmt.Println(cfg.pages)
 }
 
 func getHTML(rawURL string) (string, error) {
@@ -44,8 +56,9 @@ func getHTML(rawURL string) (string, error) {
 	return string(htmlResp), nil
 }
 
-func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int) {
-	rawBase, err := url.Parse(rawBaseURL)
+// func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int) {
+func (cfg *config) crawlPage(rawCurrentURL string) {
+	rawBase, err := url.Parse(cfg.baseURL.Host)
 	if err != nil {
 		fmt.Println("URL stdlib was not able to parse rawBaseURL: ", err)
 		return
@@ -65,11 +78,11 @@ func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int) {
 		fmt.Println(err)
 	}
 
-	if _, ok := pages[normCurrentURL]; ok {
-		pages[normCurrentURL]++
+	if _, ok := cfg.pages[normCurrentURL]; ok {
+		cfg.pages[normCurrentURL]++
 		return
 	} else {
-		pages[normCurrentURL] = 1
+		cfg.pages[normCurrentURL] = 1
 	}
 
 	currentURLhtml, err := getHTML(rawCurrentURL)
@@ -79,13 +92,13 @@ func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int) {
 	}
 	fmt.Println("CURRENTLY IN THIS URL'S HTML: ", currentURLhtml)
 
-	allURLinCurrent, err := getURLsFromHTML(currentURLhtml, rawBaseURL)
+	allURLinCurrent, err := getURLsFromHTML(currentURLhtml, cfg.baseURL.Host)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	for _, valUrl := range allURLinCurrent {
 		fmt.Println("url to traverse: ", valUrl)
-		crawlPage(rawBaseURL, valUrl, pages)
+		cfg.crawlPage(valUrl)
 	}
 }
