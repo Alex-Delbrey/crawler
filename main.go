@@ -33,6 +33,8 @@ func main() {
 	cfg := config{
 		pages:   make(map[string]int),
 		baseURL: &url.URL{Host: BASE_URL},
+		mu:      &sync.Mutex{},
+		wg:      &sync.WaitGroup{},
 	}
 	cfg.crawlPage(cfg.baseURL.Host)
 	fmt.Println(cfg.pages)
@@ -56,7 +58,10 @@ func getHTML(rawURL string) (string, error) {
 	return string(htmlResp), nil
 }
 
-// func crawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int) {
+// code is getting stuck because WaitGroup.wait is still waiting on WaitGroup to be zero.
+// it is not zero ecause I add to wg before goroutine yet I only wg.Done when a url exists
+// I need to implement wg.Done function in line 92, tricky part is that first call from
+// function can not, do wg.Done because it is zero in the first call
 func (cfg *config) crawlPage(rawCurrentURL string) {
 	rawBase, err := url.Parse(cfg.baseURL.Host)
 	if err != nil {
@@ -79,7 +84,10 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 	}
 
 	if _, ok := cfg.pages[normCurrentURL]; ok {
+		cfg.mu.Lock()
 		cfg.pages[normCurrentURL]++
+		cfg.wg.Done()
+		cfg.mu.Unlock()
 		return
 	} else {
 		cfg.pages[normCurrentURL] = 1
@@ -99,6 +107,8 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 	}
 	for _, valUrl := range allURLinCurrent {
 		fmt.Println("url to traverse: ", valUrl)
-		cfg.crawlPage(valUrl)
+		cfg.wg.Add(1)
+		go cfg.crawlPage(valUrl)
 	}
+	cfg.wg.Wait()
 }
