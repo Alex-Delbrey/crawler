@@ -58,11 +58,8 @@ func getHTML(rawURL string) (string, error) {
 	return string(htmlResp), nil
 }
 
-// code is getting stuck because WaitGroup.wait is still waiting on WaitGroup to be zero.
-// it is not zero ecause I add to wg before goroutine yet I only wg.Done when a url exists
-// I need to implement wg.Done function in line 92, tricky part is that first call from
-// function can not, do wg.Done because it is zero in the first call
 func (cfg *config) crawlPage(rawCurrentURL string) {
+	defer cfg.wg.Done()
 	rawBase, err := url.Parse(cfg.baseURL.Host)
 	if err != nil {
 		fmt.Println("URL stdlib was not able to parse rawBaseURL: ", err)
@@ -83,15 +80,13 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		fmt.Println(err)
 	}
 
-	if _, ok := cfg.pages[normCurrentURL]; ok {
-		cfg.mu.Lock()
+	cfg.mu.Lock()
+	if cfg.addPageVisit(normCurrentURL) {
 		cfg.pages[normCurrentURL]++
-		cfg.wg.Done()
-		cfg.mu.Unlock()
-		return
 	} else {
 		cfg.pages[normCurrentURL] = 1
 	}
+	cfg.mu.Unlock()
 
 	currentURLhtml, err := getHTML(rawCurrentURL)
 	if err != nil {
@@ -111,4 +106,12 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		go cfg.crawlPage(valUrl)
 	}
 	cfg.wg.Wait()
+}
+
+func (cfg *config) addPageVisit(normalizedURL string) bool {
+	if _, ok := cfg.pages[normalizedURL]; ok {
+		return false
+	} else {
+		return true
+	}
 }
