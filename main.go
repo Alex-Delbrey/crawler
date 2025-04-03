@@ -59,7 +59,7 @@ func getHTML(rawURL string) (string, error) {
 }
 
 func (cfg *config) crawlPage(rawCurrentURL string) {
-	defer cfg.wg.Done()
+	// defer cfg.wg.Done()
 	rawBase, err := url.Parse(cfg.baseURL.Host)
 	if err != nil {
 		fmt.Println("URL stdlib was not able to parse rawBaseURL: ", err)
@@ -81,6 +81,7 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 	}
 
 	cfg.mu.Lock()
+	// defer cfg.mu.Unlock()
 	if cfg.addPageVisit(normCurrentURL) {
 		cfg.pages[normCurrentURL]++
 	} else {
@@ -93,7 +94,7 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("CURRENTLY IN THIS URL'S HTML: ", currentURLhtml)
+	// fmt.Println("CURRENTLY IN THIS URL'S HTML: ", currentURLhtml)
 
 	allURLinCurrent, err := getURLsFromHTML(currentURLhtml, cfg.baseURL.Host)
 	if err != nil {
@@ -103,7 +104,10 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 	for _, valUrl := range allURLinCurrent {
 		fmt.Println("url to traverse: ", valUrl)
 		cfg.wg.Add(1)
-		go cfg.crawlPage(valUrl)
+		go func() {
+			defer cfg.wg.Done()
+			cfg.crawlPage(valUrl)
+		}()
 	}
 	cfg.wg.Wait()
 }
