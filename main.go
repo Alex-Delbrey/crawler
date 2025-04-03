@@ -31,17 +31,22 @@ func main() {
 
 	BASE_URL := os.Args[1]
 	cfg := config{
-		pages:   make(map[string]int),
-		baseURL: &url.URL{Host: BASE_URL},
-		mu:      &sync.Mutex{},
-		wg:      &sync.WaitGroup{},
+		pages:              make(map[string]int),
+		baseURL:            &url.URL{Host: BASE_URL},
+		mu:                 &sync.Mutex{},
+		concurrencyControl: make(chan struct{}, 1),
+		wg:                 &sync.WaitGroup{},
 	}
 	cfg.crawlPage(cfg.baseURL.Host)
+	cfg.wg.Wait()
 	fmt.Println(cfg.pages)
 }
 
 func getHTML(rawURL string) (string, error) {
 	resp, err := http.Get(rawURL)
+	if err != nil {
+		return "ERROR: getting url -" + rawURL, err
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "ERROR: Status request to URL failed with status code: " + strconv.Itoa(resp.StatusCode), err
 	}
@@ -59,7 +64,6 @@ func getHTML(rawURL string) (string, error) {
 }
 
 func (cfg *config) crawlPage(rawCurrentURL string) {
-	// defer cfg.wg.Done()
 	rawBase, err := url.Parse(cfg.baseURL.Host)
 	if err != nil {
 		fmt.Println("URL stdlib was not able to parse rawBaseURL: ", err)
@@ -81,13 +85,14 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 	}
 
 	cfg.mu.Lock()
-	// defer cfg.mu.Unlock()
 	if cfg.addPageVisit(normCurrentURL) {
 		cfg.pages[normCurrentURL]++
+		cfg.mu.Unlock()
+		return
 	} else {
 		cfg.pages[normCurrentURL] = 1
+		cfg.mu.Unlock()
 	}
-	cfg.mu.Unlock()
 
 	currentURLhtml, err := getHTML(rawCurrentURL)
 	if err != nil {
@@ -101,21 +106,22 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		fmt.Println(err)
 		return
 	}
-	for _, valUrl := range allURLinCurrent {
-		fmt.Println("url to traverse: ", valUrl)
-		cfg.wg.Add(1)
-		go func() {
-			defer cfg.wg.Done()
+	cfg.wg.Add(1)
+	go func() {
+		defer cfg.wg.Done()
+		cfg.concurrencyControl <- struct{}{}
+		for _, valUrl := range allURLinCurrent {
+			fmt.Println("url to traverse: ", valUrl)
 			cfg.crawlPage(valUrl)
-		}()
-	}
-	cfg.wg.Wait()
+		}
+		<-cfg.concurrencyControl
+	}()
 }
 
 func (cfg *config) addPageVisit(normalizedURL string) bool {
 	if _, ok := cfg.pages[normalizedURL]; ok {
-		return false
-	} else {
 		return true
+	} else {
+		return false
 	}
 }
