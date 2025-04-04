@@ -4,7 +4,7 @@ Guided by [Boot.dev](https://www.boot.dev)
 ## FYI
 Project is set to stop the second it reaches a url with a different host than the one provided. This is so that our laptops won't go berserk in the crawl.
 ## Usage
-To run project, use the following command:
+To run project, use the following command:\
 ```git clone git@github.com:Alex-Delbrey/crawler.git```\
 ```./crawler <website.com> <maxConcurrency> <maxPages>```\
 Where ```<maxConcurrency>``` is the buffer for go's channel\
