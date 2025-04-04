@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,13 +17,14 @@ type config struct {
 	mu                 *sync.Mutex
 	concurrencyControl chan struct{}
 	wg                 *sync.WaitGroup
+	maxPages           int
 }
 
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("no website provided")
 		return
-	} else if len(os.Args) > 2 {
+	} else if len(os.Args) > 4 {
 		fmt.Println("too many arguments provided")
 		return
 	} else {
@@ -30,16 +32,26 @@ func main() {
 	}
 
 	BASE_URL := os.Args[1]
+	MAX_CONCURRENCY, err := strconv.Atoi(os.Args[2])
+	if err != nil {
+		log.Fatal(err)
+	}
+	MAX_PAGES, err := strconv.Atoi(os.Args[3])
+	if err != nil {
+		log.Fatal(err)
+	}
 	cfg := config{
 		pages:              make(map[string]int),
 		baseURL:            &url.URL{Host: BASE_URL},
 		mu:                 &sync.Mutex{},
-		concurrencyControl: make(chan struct{}, 1),
+		concurrencyControl: make(chan struct{}, MAX_CONCURRENCY),
 		wg:                 &sync.WaitGroup{},
+		maxPages:           MAX_PAGES,
 	}
 	cfg.crawlPage(cfg.baseURL.Host)
 	cfg.wg.Wait()
 	fmt.Println(cfg.pages)
+	printReport(cfg.pages, cfg.baseURL.Host)
 }
 
 func getHTML(rawURL string) (string, error) {
@@ -64,6 +76,11 @@ func getHTML(rawURL string) (string, error) {
 }
 
 func (cfg *config) crawlPage(rawCurrentURL string) {
+	fmt.Println("url to traverse: ", rawCurrentURL)
+	if len(cfg.pages) >= cfg.maxPages {
+		fmt.Println("REACHED MAX PAGES")
+		return
+	}
 	rawBase, err := url.Parse(cfg.baseURL.Host)
 	if err != nil {
 		fmt.Println("URL stdlib was not able to parse rawBaseURL: ", err)
@@ -99,7 +116,6 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		fmt.Println(err)
 		return
 	}
-	// fmt.Println("CURRENTLY IN THIS URL'S HTML: ", currentURLhtml)
 
 	allURLinCurrent, err := getURLsFromHTML(currentURLhtml, cfg.baseURL.Host)
 	if err != nil {
@@ -111,7 +127,6 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		defer cfg.wg.Done()
 		cfg.concurrencyControl <- struct{}{}
 		for _, valUrl := range allURLinCurrent {
-			fmt.Println("url to traverse: ", valUrl)
 			cfg.crawlPage(valUrl)
 		}
 		<-cfg.concurrencyControl
@@ -123,5 +138,17 @@ func (cfg *config) addPageVisit(normalizedURL string) bool {
 		return true
 	} else {
 		return false
+	}
+}
+
+func printReport(pages map[string]int, baseURL string) {
+	fmt.Printf(`
+		==============================
+		REPORT for %s
+		==============================`, baseURL)
+	fmt.Println()
+	for key, val := range pages {
+		fmt.Printf(`Found %d internal links to %v`, val, key)
+		fmt.Println()
 	}
 }
