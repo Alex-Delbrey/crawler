@@ -12,4 +12,4 @@ and ```<maxPages>``` is the maximum amount of pages you would reach.
 ## Ideas for extending project by Boot.dev
 - Make the script run on a timer and deploy it to a server. Have it email you every so often with a report.
 - Save the report as a CSV spreadsheet rather than printing it to the console
-- Make requests concurrently to speed up the crawling process
+- ~~Make requests concurrently to speed up the crawling process~~

@@ -55,7 +55,20 @@ func main() {
 }
 
 func getHTML(rawURL string) (string, error) {
-	resp, err := http.Get(rawURL)
+	ch := make(chan struct {
+		resp *http.Response
+		err  error
+	})
+	go func() {
+		goResp, err := http.Get(rawURL)
+		ch <- struct {
+			resp *http.Response
+			err  error
+		}{goResp, err}
+	}()
+	respStruct := <-ch
+	resp, err := respStruct.resp, respStruct.err
+
 	if err != nil {
 		return "ERROR: getting url -" + rawURL, err
 	}
@@ -67,6 +80,7 @@ func getHTML(rawURL string) (string, error) {
 	if contentType := resp.Header.Get("Content-Type"); contentType != "text/html; charset=utf-8" {
 		return "ERROR: response Header is not of Content-Type `text/html`", err
 	}
+
 	htmlResp, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "ERROR: Failed to read HTML body", err
